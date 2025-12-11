@@ -136,6 +136,9 @@
     clearInterval(timerInterval);
 
     timerInterval = setInterval(updateTimerDisplay, 1000);
+    document.getElementById('startSessionBtn').disabled = true;
+    document.getElementById('pauseSessionBtn').disabled = false;
+    document.getElementById('resumeSessionBtn').disabled = true;
 }
 
     // Обновление отображения таймера
@@ -163,6 +166,9 @@
     clearInterval(timerInterval);
     sessionPausedAt = new Date();
     localStorage.setItem(SESSION_PAUSE_KEY, sessionPausedAt.toISOString());
+
+    document.getElementById('pauseSessionBtn').disabled = true;
+    document.getElementById('resumeSessionBtn').disabled = false;
 }
 
     // Продолжение таймера
@@ -177,6 +183,9 @@
 
     clearInterval(timerInterval);
     timerInterval = setInterval(updateTimerDisplay, 1000);
+
+    document.getElementById('pauseSessionBtn').disabled = false;
+    document.getElementById('resumeSessionBtn').disabled = true;
 }
 
     // Остановка таймера
@@ -199,6 +208,11 @@
 
     // Автоматически подставляем время в поле формы
     document.getElementById('sessionTimeInput').value = (elapsed / 60).toFixed(2);
+
+    // Сбрасываем кнопки
+    document.getElementById('startSessionBtn').disabled = false;
+    document.getElementById('pauseSessionBtn').disabled = true;
+    document.getElementById('resumeSessionBtn').disabled = true;
 
     return elapsed;
 }
@@ -230,13 +244,16 @@
     clearInterval(timerInterval);
 
     if (sessionPausedAt) {
+    // Таймер в состоянии паузы
     document.getElementById('pauseSessionBtn').disabled = true;
     document.getElementById('resumeSessionBtn').disabled = false;
+    document.getElementById('startSessionBtn').disabled = true;
     updateTimerDisplay();
 } else {
     timerInterval = setInterval(updateTimerDisplay, 1000);
     document.getElementById('pauseSessionBtn').disabled = false;
     document.getElementById('resumeSessionBtn').disabled = true;
+    document.getElementById('startSessionBtn').disabled = true;
 }
 }
 
@@ -280,6 +297,11 @@
     document.getElementById('timerDisplay').textContent = '00:00:00';
     document.getElementById('sessionTimeInput').value = '';
     updatePageTitle();
+
+    // Сбрасываем кнопки
+    document.getElementById('startSessionBtn').disabled = false;
+    document.getElementById('pauseSessionBtn').disabled = true;
+    document.getElementById('resumeSessionBtn').disabled = true;
 
     // Обновляем интерфейс
     renderCharts();
@@ -383,6 +405,54 @@
     document.body.removeChild(link);
 }
 
+    // Импорт из CSV
+    function importFromCsv(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+    const content = e.target.result;
+    const lines = content.split('\n');
+    if (lines.length <= 1) {
+    alert("Файл пустой или не содержит данных.");
+    return;
+}
+
+    const newSales = [];
+    for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const parts = line.split(',');
+    if (parts.length < 5) continue;
+
+    const date = parts[0].replace(/"/g, '');
+    const spheres = parseInt(parts[1]);
+    const price = parseFloat(parts[2]);
+    const amount = parseFloat(parts[3]);
+    const sessionDuration = parts[4] ? parseInt(parts[4]) : null;
+
+    if (isNaN(spheres) || isNaN(price) || isNaN(amount)) continue;
+
+    newSales.push({ date, spheres, pricePerSphere: price, sessionDuration });
+}
+
+    if (newSales.length === 0) {
+    alert("Не удалось распознать данные в файле.");
+    return;
+}
+
+    sales = newSales;
+    localStorage.setItem(LS_KEY, JSON.stringify(sales));
+    alert(`Импортировано ${newSales.length} записей.`);
+
+    // Обновляем интерфейс
+    setDefaults();
+    updateStats();
+    updateHistoryTable();
+    renderCharts();
+};
+    reader.readAsText(file);
+}
+
     // Инициализация
     setDefaults();
     resumeTimerIfActive();
@@ -400,3 +470,18 @@
 
     // Обработчик кнопки экспорта
     document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);
+
+    // Обработчик кнопки импорта
+    document.getElementById('importCsvBtn').addEventListener('click', () => {
+    document.getElementById('csvFileInput').click();
+});
+
+    document.getElementById('csvFileInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file && file.name.endsWith('.csv')) {
+    importFromCsv(file);
+} else {
+    alert("Пожалуйста, выберите файл CSV.");
+}
+    e.target.value = ''; // Сбрасываем инпут, чтобы можно было снова загрузить тот же файл
+});

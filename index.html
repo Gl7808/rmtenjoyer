@@ -9,7 +9,7 @@
 <body>
 
 <div class="container">
-    <h1>журнал маленького рмтшера</h1>
+    <h1>Подсчёт дохода от продажи сфер</h1>
 
     <!-- Блок секундомера -->
     <div class="timer-section">
@@ -32,9 +32,11 @@
         </div>
     </form>
 
-    <!-- Кнопка экспорта -->
+    <!-- Кнопки экспорта/импорта -->
     <div style="margin-bottom: 20px; text-align: center;">
         <button id="exportCsvBtn">Экспорт в CSV</button>
+        <button id="importCsvBtn">Импорт из CSV</button>
+        <input type="file" id="csvFileInput" accept=".csv" style="display: none;" />
     </div>
 
     <!-- Статистика -->
