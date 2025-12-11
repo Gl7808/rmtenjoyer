@@ -262,6 +262,7 @@
     sales.push({ date, spheres, pricePerSphere: price, sessionDuration });
     localStorage.setItem(LS_KEY, JSON.stringify(sales));
 
+    // Сбрасываем форму и таймер
     document.getElementById('saleForm').reset();
     document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
     if (sales.length > 0) {
@@ -269,6 +270,18 @@
     document.getElementById('priceInput').value = lastSale.pricePerSphere;
 }
 
+    // Сбрасываем переменные таймера
+    clearInterval(timerInterval);
+    sessionStart = null;
+    sessionPausedAt = null;
+    totalPausedSeconds = 0;
+    localStorage.removeItem(SESSION_LS_KEY);
+    localStorage.removeItem(SESSION_PAUSE_KEY);
+    document.getElementById('timerDisplay').textContent = '00:00:00';
+    document.getElementById('sessionTimeInput').value = '';
+    updatePageTitle();
+
+    // Обновляем интерфейс
     renderCharts();
     updateStats();
     updateHistoryTable();
@@ -320,13 +333,14 @@
     // Уничтожаем старый график, если он есть
     if (window.dailyChartInstance) window.dailyChartInstance.destroy();
 
+    // ✅ ИСПРАВЛЕНО: Полностью явный синтаксис Chart.js
     window.dailyChartInstance = new Chart(ctx, {
     type: 'line',
-    data: {  // ✅ Полностью явный объект
+    data: {  // ✅ Явно указано свойство data
     labels: formattedDates,
     datasets: [{
     label: labelMap[selectedType],
-    values,
+    data: values,  // ✅ Явно указано свойство data
     borderColor: '#5a3aff',
     backgroundColor: 'rgba(90, 58, 255, 0.1)',
     fill: true,
