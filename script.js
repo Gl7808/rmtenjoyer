@@ -1,12 +1,12 @@
 
     const LS_KEY = 'salesData';
     const SESSION_LS_KEY = 'sessionStartTime';
-    const SESSION_PAUSE_KEY = 'sessionPauseState'; // Для хранения состояния паузы
+    const SESSION_PAUSE_KEY = 'sessionPauseState';
     let sales = JSON.parse(localStorage.getItem(LS_KEY)) || [];
     let lastPrice = 0;
     let sessionStart = null;
-    let sessionPausedAt = null; // Время, когда была поставлена пауза
-    let totalPausedSeconds = 0; // Сколько секунд уже было в паузе
+    let sessionPausedAt = null;
+    let totalPausedSeconds = 0;
     let timerInterval = null;
     let originalTitle = document.title;
 
@@ -129,7 +129,6 @@
     localStorage.setItem(SESSION_LS_KEY, sessionStart.toISOString());
 
     if (sessionPausedAt) {
-    // Если была пауза, пересчитываем сдвиг
     totalPausedSeconds += Math.floor((sessionStart - sessionPausedAt) / 1000);
     sessionPausedAt = null;
 }
@@ -152,11 +151,14 @@
     const timeStr = formatTime(elapsed);
     document.getElementById('timerDisplay').textContent = timeStr;
     updatePageTitle(timeStr);
+
+    // Автоматически обновляем поле времени в форме
+    document.getElementById('sessionTimeInput').value = (elapsed / 60).toFixed(2);
 }
 
     // Пауза таймера
     function pauseTimer() {
-    if (!sessionStart || sessionPausedAt) return; // Не ставим паузу, если уже стоит
+    if (!sessionStart || sessionPausedAt) return;
 
     clearInterval(timerInterval);
     sessionPausedAt = new Date();
@@ -165,7 +167,7 @@
 
     // Продолжение таймера
     function resumeTimer() {
-    if (!sessionStart || !sessionPausedAt) return; // Не продолжаем, если не было паузы
+    if (!sessionStart || !sessionPausedAt) return;
 
     const pauseEnd = new Date();
     totalPausedSeconds += Math.floor((pauseEnd - sessionPausedAt) / 1000);
@@ -194,6 +196,9 @@
     const timeStr = formatTime(elapsed);
     document.getElementById('timerDisplay').textContent = timeStr;
     updatePageTitle();
+
+    // Автоматически подставляем время в поле формы
+    document.getElementById('sessionTimeInput').value = (elapsed / 60).toFixed(2);
 
     return elapsed;
 }
@@ -225,7 +230,6 @@
     clearInterval(timerInterval);
 
     if (sessionPausedAt) {
-    // Таймер в состоянии паузы
     document.getElementById('pauseSessionBtn').disabled = true;
     document.getElementById('resumeSessionBtn').disabled = false;
     updateTimerDisplay();
@@ -243,14 +247,28 @@
     const date = document.getElementById('dateInput').value;
     const spheres = parseInt(document.getElementById('spheresInput').value);
     const price = parseFloat(document.getElementById('priceInput').value);
+    const sessionTimeInMinutes = parseFloat(document.getElementById('sessionTimeInput').value);
 
-    const sessionDuration = stopTimer();
+    let sessionDuration = null;
+    if (!isNaN(sessionTimeInMinutes) && sessionTimeInMinutes >= 0) {
+    sessionDuration = Math.round(sessionTimeInMinutes * 60); // в секундах
+}
+
+    // Останавливаем таймер, если он был запущен
+    if (sessionStart) {
+    stopTimer();
+}
 
     sales.push({ date, spheres, pricePerSphere: price, sessionDuration });
     localStorage.setItem(LS_KEY, JSON.stringify(sales));
 
     document.getElementById('saleForm').reset();
-    setDefaults();
+    document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
+    if (sales.length > 0) {
+    const lastSale = sales[sales.length - 1];
+    document.getElementById('priceInput').value = lastSale.pricePerSphere;
+}
+
     renderCharts();
     updateStats();
     updateHistoryTable();
@@ -302,14 +320,13 @@
     // Уничтожаем старый график, если он есть
     if (window.dailyChartInstance) window.dailyChartInstance.destroy();
 
-    // ✅ ИСПРАВЛЕНО: ПОЛНОСТЬЮ ЯВНОЕ ОПРЕДЕЛЕНИЕ ОБЪЕКТА CHART.JS
     window.dailyChartInstance = new Chart(ctx, {
     type: 'line',
-    data: {
+    data: {  // ✅ Полностью явный объект
     labels: formattedDates,
     datasets: [{
     label: labelMap[selectedType],
-    data: values,
+    values,
     borderColor: '#5a3aff',
     backgroundColor: 'rgba(90, 58, 255, 0.1)',
     fill: true,
