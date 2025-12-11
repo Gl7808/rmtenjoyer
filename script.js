@@ -46,10 +46,21 @@
 }
 }
 
+    // Вспомогательная функция для интерполяции цвета
+    function interpolateColor(value, max, red, green) {
+    const ratio = Math.min(1, Math.max(0, value / max));
+    const r = Math.round(red[0] * (1 - ratio) + green[0] * ratio);
+    const g = Math.round(red[1] * (1 - ratio) + green[1] * ratio);
+    const b = Math.round(red[2] * (1 - ratio) + green[2] * ratio);
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
     // Обновление данных
     function updateStats() {
     if (sales.length === 0) {
     document.getElementById('daysCount').textContent = 0;
+    document.getElementById('totalSpheres').textContent = 0;
+    document.getElementById('totalRoubles').textContent = 0;
     document.getElementById('avgSpheresPerDay').textContent = 0;
     document.getElementById('avgRoublesPerDay').textContent = 0;
     document.getElementById('avgSpheresPerHour').textContent = 0;
@@ -71,7 +82,21 @@
     const avgSpheresPerHour = totalHours ? (totalSpheres / totalHours).toFixed(2) : 0;
     const avgRoublesPerHour = totalHours ? (totalRoubles / totalHours).toFixed(2) : 0;
 
+    // Устанавливаем значения
     document.getElementById('daysCount').textContent = uniqueDays;
+    document.getElementById('totalSpheres').textContent = totalSpheres;
+    document.getElementById('totalRoubles').textContent = totalRoubles.toFixed(2);
+
+    // Интерполяция цвета
+    const red = [255, 0, 0];       // Красный
+    const green = [0, 255, 0];     // Зелёный
+
+    const sphereColor = interpolateColor(totalSpheres, 1000, red, green);
+    const roubleColor = interpolateColor(totalRoubles, 100000, red, green);
+
+    document.getElementById('totalSpheres').style.color = sphereColor;
+    document.getElementById('totalRoubles').style.color = roubleColor;
+
     document.getElementById('avgSpheresPerDay').textContent = avgSpheresPerDay;
     document.getElementById('avgRoublesPerDay').textContent = avgRoublesPerDay;
     document.getElementById('avgSpheresPerHour').textContent = avgSpheresPerHour;
@@ -248,7 +273,7 @@
     document.getElementById('pauseSessionBtn').disabled = true;
     document.getElementById('resumeSessionBtn').disabled = false;
     document.getElementById('startSessionBtn').disabled = true;
-    updateTimerDisplay();
+    updateTimerDisplay(); // Обновляем отображение, чтобы не "улетало" время
 } else {
     timerInterval = setInterval(updateTimerDisplay, 1000);
     document.getElementById('pauseSessionBtn').disabled = false;
@@ -355,7 +380,6 @@
     // Уничтожаем старый график, если он есть
     if (window.dailyChartInstance) window.dailyChartInstance.destroy();
 
-    // ✅ ИСПРАВЛЕНО: Полностью явный синтаксис Chart.js
     window.dailyChartInstance = new Chart(ctx, {
     type: 'line',
     data: {  // ✅ Явно указано свойство data
