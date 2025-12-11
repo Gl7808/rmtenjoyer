@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Калькулятор сфер</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #131313;
+            --card-bg: #1e1e1e;
+            --text: #e0e0e0;
+            --accent-gradient: linear-gradient(90deg, #5a3aff, #00c6ff);
+            --timer-bg: rgba(40, 40, 60, 0.6);
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text);
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 28px;
+            text-align: center;
+        }
+
+        /* Секундомер */
+        .timer-section {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: rgba(50, 50, 70, 0.3);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .timer-display {
+            font-family: monospace;
+            font-size: 32px;
+            color: #00ffcc;
+            background: var(--timer-bg);
+            padding: 15px 30px;
+            border-radius: 10px;
+            display: inline-block;
+            letter-spacing: 2px;
+            box-shadow: 0 0 15px rgba(0, 204, 255, 0.5);
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.8; }
+        }
+
+        .timer-controls {
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .timer-controls button {
+            padding: 8px 16px;
+            font-size: 16px;
+        }
+
+        /* Форма */
+        form {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(50, 50, 50, 0.3);
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        input, button {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background: #2a2a2a;
+            color: var(--text);
+        }
+
+        button {
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(60, 60, 60, 0.5);
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label { font-size: 14px; color: #aaa; }
+
+        .chart-controls {
+            margin-bottom: 15px;
+        }
+
+        .chart-controls select {
+            padding: 8px;
+            background: #2a2a2a;
+            color: var(--text);
+            border: 1px solid #444;
+            border-radius: 4px;
+            width: 100%;
+        }
+
+        .chart-container {
+            margin-top: 10px;
+            height: 200px;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+
+        th {
+            background: rgba(80, 80, 120, 0.3);
+            color: #ccc;
+        }
+
+        tr:hover { background: rgba(100, 100, 150, 0.1); }
+
+        .delete-btn {
+            background: #ff4d4d;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .delete-btn:hover {
+            background: #ff0000;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>рмт журнальчик</h1>
+
+    <!-- Блок секундомера -->
+    <div class="timer-section">
+        <div class="timer-display" id="timerDisplay">00:00:00</div>
+        <div class="timer-controls">
+            <button type="button" id="startSessionBtn">Запустить сессию</button>
+            <button type="button" id="pauseSessionBtn" disabled>Пауза</button>
+            <button type="button" id="resumeSessionBtn" disabled>Продолжить</button>
+        </div>
+    </div>
+
+    <!-- Форма -->
+    <form id="saleForm">
+        <input type="date" id="dateInput" required />
+        <input type="number" id="spheresInput" placeholder="Количество сфер" min="1" step="1" required />
+        <input type="number" id="priceInput" placeholder="Цена за сферу (руб)" min="0.01" step="0.01" required />
+        <button type="submit">Добавить продажу</button>
+    </form>
+
+    <!-- Кнопка экспорта -->
+    <div style="margin-bottom: 20px; text-align: center;">
+        <button id="exportCsvBtn">Экспорт в CSV</button>
+    </div>
+
+    <!-- Статистика -->
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-value" id="daysCount">0</div>
+            <div class="stat-label">Дней продаж</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="avgSpheresPerDay">0</div>
+            <div class="stat-label">Среднее сфер в день</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="avgRoublesPerDay">0</div>
+            <div class="stat-label">Среднее руб/день</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="avgSpheresPerHour">0</div>
+            <div class="stat-label">Сфер в час</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="avgRoublesPerHour">0</div>
+            <div class="stat-label">Руб в час</div>
+        </div>
+    </div>
+
+    <!-- Переключение графиков -->
+    <div class="chart-controls">
+        <select id="graphSelector">
+            <option value="spheresPerDay">Сфер в день</option>
+            <option value="roublesPerDay">Рублей в день</option>
+            <option value="spheresPerHour">Сфер в час</option>
+            <option value="roublesPerHour">Рублей в час</option>
+        </select>
+    </div>
+
+    <!-- График -->
+    <div class="chart-container">
+        <canvas id="dailyChart"></canvas>
+    </div>
+
+    <!-- История продаж -->
+    <h2>История продаж</h2>
+    <table id="historyTable">
+        <thead>
+        <tr>
+            <th>Дата</th>
+            <th>Сфер</th>
+            <th>Цена за шт.</th>
+            <th>Сумма</th>
+            <th>Время сессии</th>
+            <th>Действия</th>
+        </tr>
+        </thead>
+        <tbody id="historyBody">
+        <!-- Заполняется JS -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+    const LS_KEY = 'salesData';
+    const SESSION_LS_KEY = 'sessionStartTime';
+    const SESSION_PAUSE_KEY = 'sessionPauseState'; // Для хранения состояния паузы
+    let sales = JSON.parse(localStorage.getItem(LS_KEY)) || [];
+    let lastPrice = 0;
+    let sessionStart = null;
+    let sessionPausedAt = null; // Время, когда была поставлена пауза
+    let totalPausedSeconds = 0; // Сколько секунд уже было в паузе
+    let timerInterval = null;
+    let originalTitle = document.title;
+
+    // Утилита: форматировать дату как "11 декабря"
+    function formatDateToDayMonth(dateString) {
+        const date = new Date(dateString);
+        const day = date.getDate();
+        const monthNames = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+        return `${day} ${monthNames[date.getMonth()]}`;
+    }
+
+    // Утилита: форматировать дату как "11.12"
+    function formatDateToDayMonthShort(dateString) {
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        return `${day}.${month}`;
+    }
+
+    // Утилита: форматировать время как HH:MM:SS
+    function formatTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    // Установка значений по умолчанию
+    function setDefaults() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('dateInput').value = today;
+
+        if (sales.length > 0) {
+            const lastSale = sales[sales.length - 1];
+            lastPrice = lastSale.pricePerSphere;
+            document.getElementById('priceInput').value = lastPrice;
+        }
+    }
+
+    // Обновление данных
+    function updateStats() {
+        if (sales.length === 0) {
+            document.getElementById('daysCount').textContent = 0;
+            document.getElementById('avgSpheresPerDay').textContent = 0;
+            document.getElementById('avgRoublesPerDay').textContent = 0;
+            document.getElementById('avgSpheresPerHour').textContent = 0;
+            document.getElementById('avgRoublesPerHour').textContent = 0;
+            return;
+        }
+
+        const uniqueDays = new Set(sales.map(s => s.date)).size;
+        const totalSpheres = sales.reduce((sum, s) => sum + s.spheres, 0);
+        const totalRoubles = sales.reduce((sum, s) => sum + s.spheres * s.pricePerSphere, 0);
+
+        const avgSpheresPerDay = uniqueDays ? (totalSpheres / uniqueDays).toFixed(2) : 0;
+        const avgRoublesPerDay = uniqueDays ? (totalRoubles / uniqueDays).toFixed(2) : 0;
+
+        // Сессии с временем
+        const sessionsWithTime = sales.filter(s => s.sessionDuration !== undefined);
+        const totalHours = sessionsWithTime.reduce((sum, s) => sum + s.sessionDuration / 3600, 0);
+
+        const avgSpheresPerHour = totalHours ? (totalSpheres / totalHours).toFixed(2) : 0;
+        const avgRoublesPerHour = totalHours ? (totalRoubles / totalHours).toFixed(2) : 0;
+
+        document.getElementById('daysCount').textContent = uniqueDays;
+        document.getElementById('avgSpheresPerDay').textContent = avgSpheresPerDay;
+        document.getElementById('avgRoublesPerDay').textContent = avgRoublesPerDay;
+        document.getElementById('avgSpheresPerHour').textContent = avgSpheresPerHour;
+        document.getElementById('avgRoublesPerHour').textContent = avgRoublesPerHour;
+    }
+
+    // Обновление истории
+    function updateHistoryTable() {
+        const tbody = document.getElementById('historyBody');
+        tbody.innerHTML = '';
+
+        sales.forEach((s, index) => {
+            const row = document.createElement('tr');
+            const amount = (s.spheres * s.pricePerSphere).toFixed(2);
+            const duration = s.sessionDuration !== undefined ? formatTime(s.sessionDuration) : '—';
+
+            row.innerHTML = `
+        <td>${formatDateToDayMonth(s.date)}</td>
+        <td>${s.spheres}</td>
+        <td>${s.pricePerSphere}</td>
+        <td>${amount}</td>
+        <td>${duration}</td>
+        <td><button class="delete-btn" data-index="${index}">Удалить</button></td>
+      `;
+            tbody.appendChild(row);
+        });
+
+        // Добавляем обработчики кнопок удаления
+        document.querySelectorAll('.delete-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const index = parseInt(this.getAttribute('data-index'));
+                sales.splice(index, 1);
+                localStorage.setItem(LS_KEY, JSON.stringify(sales));
+                updateStats();
+                updateHistoryTable();
+                renderCharts();
+            });
+        });
+    }
+
+    // Обновление заголовка вкладки
+    function updatePageTitle(timeStr = '') {
+        if (timeStr) {
+            document.title = `[${timeStr}] ${originalTitle}`;
+        } else {
+            document.title = originalTitle;
+        }
+    }
+
+    // Запуск таймера
+    function startTimer() {
+        if (sessionStart) return;
+
+        sessionStart = new Date();
+        localStorage.setItem(SESSION_LS_KEY, sessionStart.toISOString());
+
+        if (sessionPausedAt) {
+            // Если была пауза, пересчитываем сдвиг
+            totalPausedSeconds += Math.floor((sessionStart - sessionPausedAt) / 1000);
+            sessionPausedAt = null;
+        }
+
+        clearInterval(timerInterval);
+
+        timerInterval = setInterval(updateTimerDisplay, 1000);
+    }
+
+    // Обновление отображения таймера
+    function updateTimerDisplay() {
+        if (!sessionStart) return;
+
+        const now = new Date();
+        let elapsed = Math.floor((now - sessionStart) / 1000);
+        elapsed -= totalPausedSeconds;
+
+        if (elapsed < 0) elapsed = 0;
+
+        const timeStr = formatTime(elapsed);
+        document.getElementById('timerDisplay').textContent = timeStr;
+        updatePageTitle(timeStr);
+    }
+
+    // Пауза таймера
+    function pauseTimer() {
+        if (!sessionStart || sessionPausedAt) return; // Не ставим паузу, если уже стоит
+
+        clearInterval(timerInterval);
+        sessionPausedAt = new Date();
+        localStorage.setItem(SESSION_PAUSE_KEY, sessionPausedAt.toISOString());
+    }
+
+    // Продолжение таймера
+    function resumeTimer() {
+        if (!sessionStart || !sessionPausedAt) return; // Не продолжаем, если не было паузы
+
+        const pauseEnd = new Date();
+        totalPausedSeconds += Math.floor((pauseEnd - sessionPausedAt) / 1000);
+
+        localStorage.removeItem(SESSION_PAUSE_KEY);
+        sessionPausedAt = null;
+
+        clearInterval(timerInterval);
+        timerInterval = setInterval(updateTimerDisplay, 1000);
+    }
+
+    // Остановка таймера
+    function stopTimer() {
+        if (!sessionStart) return;
+
+        clearInterval(timerInterval);
+
+        localStorage.removeItem(SESSION_LS_KEY);
+        localStorage.removeItem(SESSION_PAUSE_KEY);
+
+        sessionStart = null;
+        sessionPausedAt = null;
+        totalPausedSeconds = 0;
+
+        const elapsed = Math.floor((new Date() - sessionStart) / 1000) - totalPausedSeconds;
+        const timeStr = formatTime(elapsed);
+        document.getElementById('timerDisplay').textContent = timeStr;
+        updatePageTitle();
+
+        return elapsed;
+    }
+
+    // Восстановление таймера при загрузке
+    function resumeTimerIfActive() {
+        const savedStartTime = localStorage.getItem(SESSION_LS_KEY);
+        const savedPauseTime = localStorage.getItem(SESSION_PAUSE_KEY);
+
+        if (!savedStartTime) return;
+
+        const startTime = new Date(savedStartTime);
+        if (isNaN(startTime.getTime())) {
+            localStorage.removeItem(SESSION_LS_KEY);
+            localStorage.removeItem(SESSION_PAUSE_KEY);
+            return;
+        }
+
+        sessionStart = startTime;
+
+        if (savedPauseTime) {
+            sessionPausedAt = new Date(savedPauseTime);
+            if (isNaN(sessionPausedAt.getTime())) {
+                localStorage.removeItem(SESSION_PAUSE_KEY);
+                sessionPausedAt = null;
+            }
+        }
+
+        clearInterval(timerInterval);
+
+        if (sessionPausedAt) {
+            // Таймер в состоянии паузы
+            document.getElementById('pauseSessionBtn').disabled = true;
+            document.getElementById('resumeSessionBtn').disabled = false;
+            updateTimerDisplay();
+        } else {
+            timerInterval = setInterval(updateTimerDisplay, 1000);
+            document.getElementById('pauseSessionBtn').disabled = false;
+            document.getElementById('resumeSessionBtn').disabled = true;
+        }
+    }
+
+    // Форма отправки
+    document.getElementById('saleForm').addEventListener('submit', e => {
+        e.preventDefault();
+
+        const date = document.getElementById('dateInput').value;
+        const spheres = parseInt(document.getElementById('spheresInput').value);
+        const price = parseFloat(document.getElementById('priceInput').value);
+
+        const sessionDuration = stopTimer();
+
+        sales.push({ date, spheres, pricePerSphere: price, sessionDuration });
+        localStorage.setItem(LS_KEY, JSON.stringify(sales));
+
+        document.getElementById('saleForm').reset();
+        setDefaults();
+        renderCharts();
+        updateStats();
+        updateHistoryTable();
+    });
+
+    // Переключение графиков
+    function renderCharts() {
+        const selector = document.getElementById('graphSelector');
+        const selectedType = selector.value;
+
+        const ctx = document.getElementById('dailyChart').getContext('2d');
+
+        // Группировка по дням
+        const dailyData = {};
+        sales.forEach(s => {
+            if (!dailyData[s.date]) dailyData[s.date] = { spheres: 0, roubles: 0, hours: 0 };
+            dailyData[s.date].spheres += s.spheres;
+            dailyData[s.date].roubles += s.spheres * s.pricePerSphere;
+            if (s.sessionDuration !== undefined) dailyData[s.date].hours += s.sessionDuration / 3600;
+        });
+
+        const dates = Object.keys(dailyData).sort();
+        const formattedDates = dates.map(d => formatDateToDayMonthShort(d));
+        let values;
+
+        if (selectedType === 'spheresPerDay') {
+            values = dates.map(date => dailyData[date].spheres);
+        } else if (selectedType === 'roublesPerDay') {
+            values = dates.map(date => dailyData[date].roubles);
+        } else if (selectedType === 'spheresPerHour') {
+            values = dates.map(date => {
+                const d = dailyData[date];
+                return d.hours ? (d.spheres / d.hours).toFixed(2) : 0;
+            });
+        } else if (selectedType === 'roublesPerHour') {
+            values = dates.map(date => {
+                const d = dailyData[date];
+                return d.hours ? (d.roubles / d.hours).toFixed(2) : 0;
+            });
+        }
+
+        const labelMap = {
+            spheresPerDay: 'Сфер в день',
+            roublesPerDay: 'Рублей в день',
+            spheresPerHour: 'Сфер в час',
+            roublesPerHour: 'Рублей в час'
+        };
+
+        // Уничтожаем старый график, если он есть
+        if (window.dailyChartInstance) window.dailyChartInstance.destroy();
+
+        // ✅ ИСПРАВЛЕНО: ПОЛНОСТЬЮ ЯВНОЕ ОПРЕДЕЛЕНИЕ ОБЪЕКТА CHART.JS
+        window.dailyChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: formattedDates,
+                datasets: [{
+                    label: labelMap[selectedType],
+                    data: values,
+                    borderColor: '#5a3aff',
+                    backgroundColor: 'rgba(90, 58, 255, 0.1)',
+                    fill: true,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#e0e0e0' } } },
+                scales: {
+                    x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                }
+            }
+        });
+    }
+
+    // Экспорт в CSV
+    function exportToCsv() {
+        if (sales.length === 0) {
+            alert("Нет данных для экспорта.");
+            return;
+        }
+
+        const header = "Дата,Сфер,Цена за шт,Сумма,Время сессии (сек)\n";
+        const rows = sales.map(s => {
+            const amount = (s.spheres * s.pricePerSphere).toFixed(2);
+            const duration = s.sessionDuration !== undefined ? s.sessionDuration : '';
+            return `"${s.date}",${s.spheres},${s.pricePerSphere},${amount},${duration}`;
+        }).join('\n');
+
+        const csvContent = header + rows;
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `история_продаж_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Инициализация
+    setDefaults();
+    resumeTimerIfActive();
+    updateStats();
+    updateHistoryTable();
+    renderCharts();
+
+    // Обработчик переключения графика
+    document.getElementById('graphSelector').addEventListener('change', renderCharts);
+
+    // Обработчики кнопок таймера
+    document.getElementById('startSessionBtn').addEventListener('click', startTimer);
+    document.getElementById('pauseSessionBtn').addEventListener('click', pauseTimer);
+    document.getElementById('resumeSessionBtn').addEventListener('click', resumeTimer);
+
+    // Обработчик кнопки экспорта
+    document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);
+</script>
+
+</body>
+</html>
