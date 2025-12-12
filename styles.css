@@ -89,7 +89,7 @@ form {
     width: 100%;
 }
 
-input, button {
+.form-row input, .form-row button {
     padding: 10px;
     font-size: 16px;
     border-radius: 4px;
@@ -98,12 +98,23 @@ input, button {
     color: var(--text);
 }
 
-button {
+.form-row button {
     background: var(--accent-gradient);
     color: white;
     border: none;
     cursor: pointer;
     font-weight: bold;
+}
+
+.form-row textarea {
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 4px;
+    border: 1px solid #444;
+    background: #2a2a2a;
+    color: var(--text);
+    resize: vertical;
+    width: 100%;
 }
 
 /* Статистика - основные метрики */
@@ -174,8 +185,35 @@ button {
 
 .chart-container {
     margin-top: 10px;
-    height: 200px;
+    height: 400px; /* Увеличено */
     margin-bottom: 20px;
+}
+
+/* Спойлер для графиков */
+.chart-toggle {
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.chart-toggle button {
+    padding: 8px 16px;
+    background: #2a2a2a;
+    color: var(--text);
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.chart-toggle button:hover {
+    background: #3a3a3a;
+}
+
+.chart-wrapper {
+    display: block;
+}
+
+.chart-wrapper.hidden {
+    display: none;
 }
 
 table {

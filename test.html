@@ -96,7 +96,7 @@
             width: 100%;
         }
 
-        input, button {
+        .form-row input, .form-row button {
             padding: 10px;
             font-size: 16px;
             border-radius: 4px;
@@ -105,12 +105,23 @@
             color: var(--text);
         }
 
-        button {
+        .form-row button {
             background: var(--accent-gradient);
             color: white;
             border: none;
             cursor: pointer;
             font-weight: bold;
+        }
+
+        .form-row textarea {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background: #2a2a2a;
+            color: var(--text);
+            resize: vertical;
+            width: 100%;
         }
 
         /* Статистика - основные метрики */
@@ -181,8 +192,35 @@
 
         .chart-container {
             margin-top: 10px;
-            height: 200px;
+            height: 400px; /* Увеличено */
             margin-bottom: 20px;
+        }
+
+        /* Спойлер для графиков */
+        .chart-toggle {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .chart-toggle button {
+            padding: 8px 16px;
+            background: #2a2a2a;
+            color: var(--text);
+            border: 1px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .chart-toggle button:hover {
+            background: #3a3a3a;
+        }
+
+        .chart-wrapper {
+            display: block;
+        }
+
+        .chart-wrapper.hidden {
+            display: none;
         }
 
         table {
@@ -234,6 +272,7 @@
             <button type="button" id="startSessionBtn">Запустить сессию</button>
             <button type="button" id="pauseSessionBtn" disabled>Пауза</button>
             <button type="button" id="resumeSessionBtn" disabled>Продолжить</button>
+            <button type="button" id="resetTimerBtn">Сбросить таймер</button>
         </div>
     </div>
 
@@ -244,6 +283,9 @@
             <input type="number" id="spheresInput" placeholder="Количество сфер" min="1" step="1" required />
             <input type="number" id="priceInput" placeholder="Цена за сферу (руб)" min="0.01" step="0.01" required />
             <input type="number" id="sessionTimeInput" placeholder="Время сессии (мин)" min="0" step="0.01" />
+        </div>
+        <div class="form-row">
+            <textarea id="commentInput" placeholder="Комментарий (необязательно)" rows="2"></textarea>
             <button type="submit">Добавить продажу</button>
         </div>
     </form>
@@ -291,19 +333,26 @@
         </div>
     </div>
 
-    <!-- Переключение графиков -->
-    <div class="chart-controls">
-        <select id="graphSelector">
-            <option value="spheresPerDay">Сфер в день</option>
-            <option value="roublesPerDay">Рублей в день</option>
-            <option value="spheresPerHour">Сфер в час</option>
-            <option value="roublesPerHour">Рублей в час</option>
-        </select>
+    <!-- Спойлер для графиков -->
+    <div class="chart-toggle">
+        <button id="toggleChartBtn">Скрыть графики</button>
     </div>
 
-    <!-- График -->
-    <div class="chart-container">
-        <canvas id="dailyChart"></canvas>
+    <div class="chart-wrapper" id="chartWrapper">
+        <!-- Переключение графиков -->
+        <div class="chart-controls">
+            <select id="graphSelector">
+                <option value="spheresPerDay">Сфер в день</option>
+                <option value="roublesPerDay">Рублей в день</option>
+                <option value="spheresPerHour">Сфер в час</option>
+                <option value="roublesPerHour">Рублей в час</option>
+            </select>
+        </div>
+
+        <!-- График -->
+        <div class="chart-container">
+            <canvas id="dailyChart"></canvas>
+        </div>
     </div>
 
     <!-- История продаж -->
@@ -316,6 +365,7 @@
             <th>Цена за шт.</th>
             <th>Сумма</th>
             <th>Время сессии</th>
+            <th>Комментарий</th>
             <th>Действия</th>
         </tr>
         </thead>
@@ -329,6 +379,7 @@
     const LS_KEY = 'salesData';
     const SESSION_LS_KEY = 'sessionStartTime';
     const SESSION_PAUSE_KEY = 'sessionPauseState';
+    const CHART_COLLAPSED_LS_KEY = 'chartCollapsed'; // Для сохранения состояния спойлера
     let sales = JSON.parse(localStorage.getItem(LS_KEY)) || [];
     let lastPrice = 0;
     let sessionStart = null;
@@ -439,6 +490,7 @@
             const row = document.createElement('tr');
             const amount = (s.spheres * s.pricePerSphere).toFixed(2);
             const duration = s.sessionDuration !== undefined ? formatTime(s.sessionDuration) : '—';
+            const comment = s.comment || '—';
 
             row.innerHTML = `
         <td>${formatDateToDayMonth(s.date)}</td>
@@ -446,6 +498,7 @@
         <td>${s.pricePerSphere}</td>
         <td>${amount}</td>
         <td>${duration}</td>
+        <td>${comment}</td>
         <td><button class="delete-btn" data-index="${index}">Удалить</button></td>
       `;
             tbody.appendChild(row);
@@ -491,6 +544,7 @@
         document.getElementById('startSessionBtn').disabled = true;
         document.getElementById('pauseSessionBtn').disabled = false;
         document.getElementById('resumeSessionBtn').disabled = true;
+        document.getElementById('resetTimerBtn').disabled = true;
     }
 
     // Обновление отображения таймера
@@ -540,10 +594,8 @@
         document.getElementById('resumeSessionBtn').disabled = true;
     }
 
-    // Остановка таймера
-    function stopTimer() {
-        if (!sessionStart) return;
-
+    // Сброс таймера
+    function resetTimer() {
         clearInterval(timerInterval);
 
         localStorage.removeItem(SESSION_LS_KEY);
@@ -553,20 +605,15 @@
         sessionPausedAt = null;
         totalPausedSeconds = 0;
 
-        const elapsed = Math.floor((new Date() - sessionStart) / 1000) - totalPausedSeconds;
-        const timeStr = formatTime(elapsed);
-        document.getElementById('timerDisplay').textContent = timeStr;
+        document.getElementById('timerDisplay').textContent = '00:00:00';
+        document.getElementById('sessionTimeInput').value = '';
         updatePageTitle();
-
-        // Автоматически подставляем время в поле формы
-        document.getElementById('sessionTimeInput').value = (elapsed / 60).toFixed(2);
 
         // Сбрасываем кнопки
         document.getElementById('startSessionBtn').disabled = false;
         document.getElementById('pauseSessionBtn').disabled = true;
         document.getElementById('resumeSessionBtn').disabled = true;
-
-        return elapsed;
+        document.getElementById('resetTimerBtn').disabled = true;
     }
 
     // Восстановление таймера при загрузке
@@ -600,12 +647,46 @@
             document.getElementById('pauseSessionBtn').disabled = true;
             document.getElementById('resumeSessionBtn').disabled = false;
             document.getElementById('startSessionBtn').disabled = true;
+            document.getElementById('resetTimerBtn').disabled = false;
             updateTimerDisplay(); // Обновляем отображение, чтобы не "улетало" время
         } else {
             timerInterval = setInterval(updateTimerDisplay, 1000);
             document.getElementById('pauseSessionBtn').disabled = false;
             document.getElementById('resumeSessionBtn').disabled = true;
             document.getElementById('startSessionBtn').disabled = true;
+            document.getElementById('resetTimerBtn').disabled = false;
+        }
+    }
+
+    // Переключение видимости графиков
+    function toggleChartVisibility() {
+        const wrapper = document.getElementById('chartWrapper');
+        const btn = document.getElementById('toggleChartBtn');
+        const isHidden = wrapper.classList.contains('hidden');
+
+        if (isHidden) {
+            wrapper.classList.remove('hidden');
+            btn.textContent = 'Скрыть графики';
+            localStorage.removeItem(CHART_COLLAPSED_LS_KEY);
+        } else {
+            wrapper.classList.add('hidden');
+            btn.textContent = 'Показать графики';
+            localStorage.setItem(CHART_COLLAPSED_LS_KEY, 'true');
+        }
+    }
+
+    // Восстановление состояния спойлера графиков
+    function restoreChartVisibility() {
+        const isCollapsed = localStorage.getItem(CHART_COLLAPSED_LS_KEY) === 'true';
+        const wrapper = document.getElementById('chartWrapper');
+        const btn = document.getElementById('toggleChartBtn');
+
+        if (isCollapsed) {
+            wrapper.classList.add('hidden');
+            btn.textContent = 'Показать графики';
+        } else {
+            wrapper.classList.remove('hidden');
+            btn.textContent = 'Скрыть графики';
         }
     }
 
@@ -617,6 +698,7 @@
         const spheres = parseInt(document.getElementById('spheresInput').value);
         const price = parseFloat(document.getElementById('priceInput').value);
         const sessionTimeInMinutes = parseFloat(document.getElementById('sessionTimeInput').value);
+        const comment = document.getElementById('commentInput').value.trim();
 
         let sessionDuration = null;
         if (!isNaN(sessionTimeInMinutes) && sessionTimeInMinutes >= 0) {
@@ -628,7 +710,7 @@
             stopTimer();
         }
 
-        sales.push({ date, spheres, pricePerSphere: price, sessionDuration });
+        sales.push({ date, spheres, pricePerSphere: price, sessionDuration, comment });
         localStorage.setItem(LS_KEY, JSON.stringify(sales));
 
         // Сбрасываем форму и таймер
@@ -654,6 +736,7 @@
         document.getElementById('startSessionBtn').disabled = false;
         document.getElementById('pauseSessionBtn').disabled = true;
         document.getElementById('resumeSessionBtn').disabled = true;
+        document.getElementById('resetTimerBtn').disabled = true;
 
         // Обновляем интерфейс
         renderCharts();
@@ -718,7 +801,7 @@
                     backgroundColor: 'rgba(90, 58, 255, 0.1)',
                     fill: true,
                 }]
-            },
+        },
         options: {
             responsive: true,
                 plugins: { legend: { labels: { color: '#e0e0e0' } } },
@@ -737,11 +820,12 @@
             return;
         }
 
-        const header = "Дата,Сфер,Цена за шт,Сумма,Время сессии (сек)\n";
+        const header = "Дата,Сфер,Цена за шт,Сумма,Время сессии (сек),Комментарий\n";
         const rows = sales.map(s => {
             const amount = (s.spheres * s.pricePerSphere).toFixed(2);
             const duration = s.sessionDuration !== undefined ? s.sessionDuration : '';
-            return `"${s.date}",${s.spheres},${s.pricePerSphere},${amount},${duration}`;
+            const comment = s.comment ? `"${s.comment}"` : '""';
+            return `"${s.date}",${s.spheres},${s.pricePerSphere},${amount},${duration},${comment}`;
         }).join('\n');
 
         const csvContent = header + rows;
@@ -772,18 +856,35 @@
                 const line = lines[i].trim();
                 if (!line) continue;
 
-                const parts = line.split(',');
-                if (parts.length < 5) continue;
+                // Разбиваем строку по запятым, учитывая кавычки
+                const parts = [];
+                let current = '';
+                let inQuotes = false;
+                for (let j = 0; j < line.length; j++) {
+                    const char = line[j];
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        parts.push(current);
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                parts.push(current);
+
+                if (parts.length < 6) continue;
 
                 const date = parts[0].replace(/"/g, '');
                 const spheres = parseInt(parts[1]);
                 const price = parseFloat(parts[2]);
                 const amount = parseFloat(parts[3]);
                 const sessionDuration = parts[4] ? parseInt(parts[4]) : null;
+                const comment = parts[5] ? parts[5].replace(/"/g, '') : '';
 
                 if (isNaN(spheres) || isNaN(price) || isNaN(amount)) continue;
 
-                newSales.push({ date, spheres, pricePerSphere: price, sessionDuration });
+                newSales.push({ date, spheres, pricePerSphere: price, sessionDuration, comment });
             }
 
             if (newSales.length === 0) {
@@ -807,6 +908,7 @@
     // Инициализация
     setDefaults();
     resumeTimerIfActive();
+    restoreChartVisibility();
     updateStats();
     updateHistoryTable();
     renderCharts();
@@ -814,10 +916,14 @@
     // Обработчик переключения графика
     document.getElementById('graphSelector').addEventListener('change', renderCharts);
 
+    // Обработчик кнопки спойлера графиков
+    document.getElementById('toggleChartBtn').addEventListener('click', toggleChartVisibility);
+
     // Обработчики кнопок таймера
     document.getElementById('startSessionBtn').addEventListener('click', startTimer);
     document.getElementById('pauseSessionBtn').addEventListener('click', pauseTimer);
     document.getElementById('resumeSessionBtn').addEventListener('click', resumeTimer);
+    document.getElementById('resetTimerBtn').addEventListener('click', resetTimer);
 
     // Обработчик кнопки экспорта
     document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);

@@ -2,6 +2,7 @@
     const LS_KEY = 'salesData';
     const SESSION_LS_KEY = 'sessionStartTime';
     const SESSION_PAUSE_KEY = 'sessionPauseState';
+    const CHART_COLLAPSED_LS_KEY = 'chartCollapsed'; // Для сохранения состояния спойлера
     let sales = JSON.parse(localStorage.getItem(LS_KEY)) || [];
     let lastPrice = 0;
     let sessionStart = null;
@@ -112,6 +113,7 @@
     const row = document.createElement('tr');
     const amount = (s.spheres * s.pricePerSphere).toFixed(2);
     const duration = s.sessionDuration !== undefined ? formatTime(s.sessionDuration) : '—';
+    const comment = s.comment || '—';
 
     row.innerHTML = `
         <td>${formatDateToDayMonth(s.date)}</td>
@@ -119,6 +121,7 @@
         <td>${s.pricePerSphere}</td>
         <td>${amount}</td>
         <td>${duration}</td>
+        <td>${comment}</td>
         <td><button class="delete-btn" data-index="${index}">Удалить</button></td>
       `;
     tbody.appendChild(row);
@@ -164,6 +167,7 @@
     document.getElementById('startSessionBtn').disabled = true;
     document.getElementById('pauseSessionBtn').disabled = false;
     document.getElementById('resumeSessionBtn').disabled = true;
+    document.getElementById('resetTimerBtn').disabled = true;
 }
 
     // Обновление отображения таймера
@@ -213,10 +217,8 @@
     document.getElementById('resumeSessionBtn').disabled = true;
 }
 
-    // Остановка таймера
-    function stopTimer() {
-    if (!sessionStart) return;
-
+    // Сброс таймера
+    function resetTimer() {
     clearInterval(timerInterval);
 
     localStorage.removeItem(SESSION_LS_KEY);
@@ -226,20 +228,15 @@
     sessionPausedAt = null;
     totalPausedSeconds = 0;
 
-    const elapsed = Math.floor((new Date() - sessionStart) / 1000) - totalPausedSeconds;
-    const timeStr = formatTime(elapsed);
-    document.getElementById('timerDisplay').textContent = timeStr;
+    document.getElementById('timerDisplay').textContent = '00:00:00';
+    document.getElementById('sessionTimeInput').value = '';
     updatePageTitle();
-
-    // Автоматически подставляем время в поле формы
-    document.getElementById('sessionTimeInput').value = (elapsed / 60).toFixed(2);
 
     // Сбрасываем кнопки
     document.getElementById('startSessionBtn').disabled = false;
     document.getElementById('pauseSessionBtn').disabled = true;
     document.getElementById('resumeSessionBtn').disabled = true;
-
-    return elapsed;
+    document.getElementById('resetTimerBtn').disabled = true;
 }
 
     // Восстановление таймера при загрузке
@@ -273,12 +270,46 @@
     document.getElementById('pauseSessionBtn').disabled = true;
     document.getElementById('resumeSessionBtn').disabled = false;
     document.getElementById('startSessionBtn').disabled = true;
+    document.getElementById('resetTimerBtn').disabled = false;
     updateTimerDisplay(); // Обновляем отображение, чтобы не "улетало" время
 } else {
     timerInterval = setInterval(updateTimerDisplay, 1000);
     document.getElementById('pauseSessionBtn').disabled = false;
     document.getElementById('resumeSessionBtn').disabled = true;
     document.getElementById('startSessionBtn').disabled = true;
+    document.getElementById('resetTimerBtn').disabled = false;
+}
+}
+
+    // Переключение видимости графиков
+    function toggleChartVisibility() {
+    const wrapper = document.getElementById('chartWrapper');
+    const btn = document.getElementById('toggleChartBtn');
+    const isHidden = wrapper.classList.contains('hidden');
+
+    if (isHidden) {
+    wrapper.classList.remove('hidden');
+    btn.textContent = 'Скрыть графики';
+    localStorage.removeItem(CHART_COLLAPSED_LS_KEY);
+} else {
+    wrapper.classList.add('hidden');
+    btn.textContent = 'Показать графики';
+    localStorage.setItem(CHART_COLLAPSED_LS_KEY, 'true');
+}
+}
+
+    // Восстановление состояния спойлера графиков
+    function restoreChartVisibility() {
+    const isCollapsed = localStorage.getItem(CHART_COLLAPSED_LS_KEY) === 'true';
+    const wrapper = document.getElementById('chartWrapper');
+    const btn = document.getElementById('toggleChartBtn');
+
+    if (isCollapsed) {
+    wrapper.classList.add('hidden');
+    btn.textContent = 'Показать графики';
+} else {
+    wrapper.classList.remove('hidden');
+    btn.textContent = 'Скрыть графики';
 }
 }
 
@@ -290,6 +321,7 @@
     const spheres = parseInt(document.getElementById('spheresInput').value);
     const price = parseFloat(document.getElementById('priceInput').value);
     const sessionTimeInMinutes = parseFloat(document.getElementById('sessionTimeInput').value);
+    const comment = document.getElementById('commentInput').value.trim();
 
     let sessionDuration = null;
     if (!isNaN(sessionTimeInMinutes) && sessionTimeInMinutes >= 0) {
@@ -301,7 +333,7 @@
     stopTimer();
 }
 
-    sales.push({ date, spheres, pricePerSphere: price, sessionDuration });
+    sales.push({ date, spheres, pricePerSphere: price, sessionDuration, comment });
     localStorage.setItem(LS_KEY, JSON.stringify(sales));
 
     // Сбрасываем форму и таймер
@@ -327,6 +359,7 @@
     document.getElementById('startSessionBtn').disabled = false;
     document.getElementById('pauseSessionBtn').disabled = true;
     document.getElementById('resumeSessionBtn').disabled = true;
+    document.getElementById('resetTimerBtn').disabled = true;
 
     // Обновляем интерфейс
     renderCharts();
@@ -410,11 +443,12 @@
     return;
 }
 
-    const header = "Дата,Сфер,Цена за шт,Сумма,Время сессии (сек)\n";
+    const header = "Дата,Сфер,Цена за шт,Сумма,Время сессии (сек),Комментарий\n";
     const rows = sales.map(s => {
     const amount = (s.spheres * s.pricePerSphere).toFixed(2);
     const duration = s.sessionDuration !== undefined ? s.sessionDuration : '';
-    return `"${s.date}",${s.spheres},${s.pricePerSphere},${amount},${duration}`;
+    const comment = s.comment ? `"${s.comment}"` : '""';
+    return `"${s.date}",${s.spheres},${s.pricePerSphere},${amount},${duration},${comment}`;
 }).join('\n');
 
     const csvContent = header + rows;
@@ -445,18 +479,35 @@
     const line = lines[i].trim();
     if (!line) continue;
 
-    const parts = line.split(',');
-    if (parts.length < 5) continue;
+    // Разбиваем строку по запятым, учитывая кавычки
+    const parts = [];
+    let current = '';
+    let inQuotes = false;
+    for (let j = 0; j < line.length; j++) {
+    const char = line[j];
+    if (char === '"') {
+    inQuotes = !inQuotes;
+} else if (char === ',' && !inQuotes) {
+    parts.push(current);
+    current = '';
+} else {
+    current += char;
+}
+}
+    parts.push(current);
+
+    if (parts.length < 6) continue;
 
     const date = parts[0].replace(/"/g, '');
     const spheres = parseInt(parts[1]);
     const price = parseFloat(parts[2]);
     const amount = parseFloat(parts[3]);
     const sessionDuration = parts[4] ? parseInt(parts[4]) : null;
+    const comment = parts[5] ? parts[5].replace(/"/g, '') : '';
 
     if (isNaN(spheres) || isNaN(price) || isNaN(amount)) continue;
 
-    newSales.push({ date, spheres, pricePerSphere: price, sessionDuration });
+    newSales.push({ date, spheres, pricePerSphere: price, sessionDuration, comment });
 }
 
     if (newSales.length === 0) {
@@ -480,6 +531,7 @@
     // Инициализация
     setDefaults();
     resumeTimerIfActive();
+    restoreChartVisibility();
     updateStats();
     updateHistoryTable();
     renderCharts();
@@ -487,10 +539,14 @@
     // Обработчик переключения графика
     document.getElementById('graphSelector').addEventListener('change', renderCharts);
 
+    // Обработчик кнопки спойлера графиков
+    document.getElementById('toggleChartBtn').addEventListener('click', toggleChartVisibility);
+
     // Обработчики кнопок таймера
     document.getElementById('startSessionBtn').addEventListener('click', startTimer);
     document.getElementById('pauseSessionBtn').addEventListener('click', pauseTimer);
     document.getElementById('resumeSessionBtn').addEventListener('click', resumeTimer);
+    document.getElementById('resetTimerBtn').addEventListener('click', resetTimer);
 
     // Обработчик кнопки экспорта
     document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);
