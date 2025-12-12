@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Калькулятор сфер</title>
+    <title>RMTimer</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -259,11 +259,12 @@
             background: #ff0000;
         }
     </style>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
 </head>
 <body>
 
 <div class="container">
-    <h1>Подсчёт дохода от продажи сфер</h1>
+    <h1></h1>
 
     <!-- Блок секундомера -->
     <div class="timer-section">
@@ -801,16 +802,16 @@
                     backgroundColor: 'rgba(90, 58, 255, 0.1)',
                     fill: true,
                 }]
-        },
-        options: {
-            responsive: true,
+            },
+            options: {
+                responsive: true,
                 plugins: { legend: { labels: { color: '#e0e0e0' } } },
-            scales: {
-                x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                y: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                scales: {
+                    x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                }
             }
-        }
-    });
+        });
     }
 
     // Экспорт в CSV
