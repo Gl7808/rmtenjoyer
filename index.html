@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>RMTimer</title>
+    <title>RMT</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -96,7 +96,7 @@
             width: 100%;
         }
 
-        .form-row input, .form-row button {
+        .form-row input, .form-row button, .form-row select {
             padding: 10px;
             font-size: 16px;
             border-radius: 4px;
@@ -122,6 +122,18 @@
             color: var(--text);
             resize: vertical;
             width: 100%;
+        }
+
+        .icon-select {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .icon-select img {
+            width: 24px;
+            height: 24px;
+            vertical-align: middle;
         }
 
         /* Статистика - основные метрики */
@@ -264,7 +276,6 @@
 <body>
 
 <div class="container">
-    <h1></h1>
 
     <!-- Блок секундомера -->
     <div class="timer-section">
@@ -284,6 +295,15 @@
             <input type="number" id="spheresInput" placeholder="Количество сфер" min="1" step="1" required />
             <input type="number" id="priceInput" placeholder="Цена за сферу (руб)" min="0.01" step="0.01" required />
             <input type="number" id="sessionTimeInput" placeholder="Время сессии (мин)" min="0" step="0.01" />
+            <select id="contentTypeSelect" class="icon-select">
+                <option value="">Тип контента</option>
+                <option value="expedition">экспедиция</option>
+                <option value="map">мапки</option>
+                <option value="partymapping">пати мапки</option>
+                <option value="boss">боссы</option>
+            </select>
+            <input type="number" id="contentCountInput" placeholder="Кол-во контентов" min="1" step="1" />
+            <button type="submit">Добавить продажу</button>
         </div>
         <div class="form-row">
             <textarea id="commentInput" placeholder="Комментарий (необязательно)" rows="2"></textarea>
@@ -332,6 +352,10 @@
             <div class="stat-value" id="avgRoublesPerHour">0</div>
             <div class="stat-label">Руб в час</div>
         </div>
+        <div class="stat-card">
+            <div class="stat-value" id="avgSpheresPerContent">0</div>
+            <div class="stat-label">Сфер / Контент</div>
+        </div>
     </div>
 
     <!-- Спойлер для графиков -->
@@ -366,6 +390,8 @@
             <th>Цена за шт.</th>
             <th>Сумма</th>
             <th>Время сессии</th>
+            <th>Контент</th>
+            <th>Кол-во</th>
             <th>Комментарий</th>
             <th>Действия</th>
         </tr>
@@ -380,7 +406,7 @@
     const LS_KEY = 'salesData';
     const SESSION_LS_KEY = 'sessionStartTime';
     const SESSION_PAUSE_KEY = 'sessionPauseState';
-    const CHART_COLLAPSED_LS_KEY = 'chartCollapsed'; // Для сохранения состояния спойлера
+    const CHART_COLLAPSED_LS_KEY = 'chartCollapsed';
     let sales = JSON.parse(localStorage.getItem(LS_KEY)) || [];
     let lastPrice = 0;
     let sessionStart = null;
@@ -444,6 +470,7 @@
             document.getElementById('avgRoublesPerDay').textContent = 0;
             document.getElementById('avgSpheresPerHour').textContent = 0;
             document.getElementById('avgRoublesPerHour').textContent = 0;
+            document.getElementById('avgSpheresPerContent').textContent = 0;
             return;
         }
 
@@ -460,6 +487,10 @@
 
         const avgSpheresPerHour = totalHours ? (totalSpheres / totalHours).toFixed(2) : 0;
         const avgRoublesPerHour = totalHours ? (totalRoubles / totalHours).toFixed(2) : 0;
+
+        // Среднее сфер / контент
+        const totalContentCount = sales.reduce((sum, s) => sum + (s.contentCount || 0), 0);
+        const avgSpheresPerContent = totalContentCount ? (totalSpheres / totalContentCount).toFixed(2) : 0;
 
         // Устанавливаем значения
         document.getElementById('daysCount').textContent = uniqueDays;
@@ -480,6 +511,7 @@
         document.getElementById('avgRoublesPerDay').textContent = avgRoublesPerDay;
         document.getElementById('avgSpheresPerHour').textContent = avgSpheresPerHour;
         document.getElementById('avgRoublesPerHour').textContent = avgRoublesPerHour;
+        document.getElementById('avgSpheresPerContent').textContent = avgSpheresPerContent;
     }
 
     // Обновление истории
@@ -492,6 +524,26 @@
             const amount = (s.spheres * s.pricePerSphere).toFixed(2);
             const duration = s.sessionDuration !== undefined ? formatTime(s.sessionDuration) : '—';
             const comment = s.comment || '—';
+            const contentType = s.contentType || '—';
+            const contentCount = s.contentCount || '—';
+
+            // Иконка контента (изображение)
+            let icon = '—';
+            if (s.contentType) {
+                // Пример: можно вставить свои изображения
+                const iconMap = {
+                    'partymapping': 'https://cdn.poe2db.tw/image/art/2dart/uiimages/ingame/atlasscreen/atlasiconcontent/atlasiconcontentexpedition.webp',
+                    'boss': 'https://cdn.poe2db.tw/image/Art/2DArt/UIImages/InGame/AtlasScreen/AtlasIconContent/AtlasIconContentMapBoss.webp',
+                    'map': 'https://cdn.poe2db.tw/image/art/2ditems/maps/endgamemaps/endgamemap1.webp',
+                    'expedition': 'https://cdn.poe2db.tw/image/art/textures/interface/2d/2dart/uiimages/ingame/worldmap/mapbuttonabysshub.webp'
+                };
+                const iconUrl = iconMap[s.contentType];
+                if (iconUrl) {
+                    icon = `<img src="${iconUrl}" alt="${s.contentType}" title="${s.contentType}" style="width: 24px; height: 24px;" />`;
+                } else {
+                    icon = '❓';
+                }
+            }
 
             row.innerHTML = `
         <td>${formatDateToDayMonth(s.date)}</td>
@@ -499,6 +551,8 @@
         <td>${s.pricePerSphere}</td>
         <td>${amount}</td>
         <td>${duration}</td>
+        <td>${icon}</td>
+        <td>${contentCount}</td>
         <td>${comment}</td>
         <td><button class="delete-btn" data-index="${index}">Удалить</button></td>
       `;
@@ -699,6 +753,8 @@
         const spheres = parseInt(document.getElementById('spheresInput').value);
         const price = parseFloat(document.getElementById('priceInput').value);
         const sessionTimeInMinutes = parseFloat(document.getElementById('sessionTimeInput').value);
+        const contentType = document.getElementById('contentTypeSelect').value;
+        const contentCount = parseInt(document.getElementById('contentCountInput').value) || 0;
         const comment = document.getElementById('commentInput').value.trim();
 
         let sessionDuration = null;
@@ -706,43 +762,28 @@
             sessionDuration = Math.round(sessionTimeInMinutes * 60); // в секундах
         }
 
-        // Останавливаем таймер, если он был запущен
-        if (sessionStart) {
-            stopTimer();
-        }
-
-        sales.push({ date, spheres, pricePerSphere: price, sessionDuration, comment });
+        // Сохраняем данные, даже если таймер активен
+        sales.push({ date, spheres, pricePerSphere: price, sessionDuration, contentType, contentCount, comment });
         localStorage.setItem(LS_KEY, JSON.stringify(sales));
-
-        // Сбрасываем форму и таймер
-        document.getElementById('saleForm').reset();
-        document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
-        if (sales.length > 0) {
-            const lastSale = sales[sales.length - 1];
-            document.getElementById('priceInput').value = lastSale.pricePerSphere;
-        }
-
-        // Сбрасываем переменные таймера
-        clearInterval(timerInterval);
-        sessionStart = null;
-        sessionPausedAt = null;
-        totalPausedSeconds = 0;
-        localStorage.removeItem(SESSION_LS_KEY);
-        localStorage.removeItem(SESSION_PAUSE_KEY);
-        document.getElementById('timerDisplay').textContent = '00:00:00';
-        document.getElementById('sessionTimeInput').value = '';
-        updatePageTitle();
-
-        // Сбрасываем кнопки
-        document.getElementById('startSessionBtn').disabled = false;
-        document.getElementById('pauseSessionBtn').disabled = true;
-        document.getElementById('resumeSessionBtn').disabled = true;
-        document.getElementById('resetTimerBtn').disabled = true;
 
         // Обновляем интерфейс
         renderCharts();
         updateStats();
         updateHistoryTable();
+
+        // Сбрасываем только поля формы
+        document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
+        document.getElementById('spheresInput').value = '';
+        document.getElementById('priceInput').value = '';
+        document.getElementById('sessionTimeInput').value = '';
+        document.getElementById('contentTypeSelect').value = '';
+        document.getElementById('contentCountInput').value = '';
+        document.getElementById('commentInput').value = '';
+
+        if (sales.length > 0) {
+            const lastSale = sales[sales.length - 1];
+            document.getElementById('priceInput').value = lastSale.pricePerSphere;
+        }
     });
 
     // Переключение графиков
@@ -802,16 +843,16 @@
                     backgroundColor: 'rgba(90, 58, 255, 0.1)',
                     fill: true,
                 }]
-            },
-            options: {
-                responsive: true,
+        },
+        options: {
+            responsive: true,
                 plugins: { legend: { labels: { color: '#e0e0e0' } } },
-                scales: {
-                    x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                    y: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } }
-                }
+            scales: {
+                x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } }
             }
-        });
+        }
+    });
     }
 
     // Экспорт в CSV
@@ -821,12 +862,12 @@
             return;
         }
 
-        const header = "Дата,Сфер,Цена за шт,Сумма,Время сессии (сек),Комментарий\n";
+        const header = "Дата,Сфер,Цена за шт,Сумма,Время сессии (сек),Тип контента,Кол-во контентов,Комментарий\n";
         const rows = sales.map(s => {
             const amount = (s.spheres * s.pricePerSphere).toFixed(2);
             const duration = s.sessionDuration !== undefined ? s.sessionDuration : '';
             const comment = s.comment ? `"${s.comment}"` : '""';
-            return `"${s.date}",${s.spheres},${s.pricePerSphere},${amount},${duration},${comment}`;
+            return `"${s.date}",${s.spheres},${s.pricePerSphere},${amount},${duration},"${s.contentType}",${s.contentCount},${comment}`;
         }).join('\n');
 
         const csvContent = header + rows;
@@ -874,18 +915,20 @@
                 }
                 parts.push(current);
 
-                if (parts.length < 6) continue;
+                if (parts.length < 8) continue;
 
                 const date = parts[0].replace(/"/g, '');
                 const spheres = parseInt(parts[1]);
                 const price = parseFloat(parts[2]);
                 const amount = parseFloat(parts[3]);
                 const sessionDuration = parts[4] ? parseInt(parts[4]) : null;
-                const comment = parts[5] ? parts[5].replace(/"/g, '') : '';
+                const contentType = parts[5] ? parts[5].replace(/"/g, '') : '';
+                const contentCount = parts[6] ? parseInt(parts[6]) : 0;
+                const comment = parts[7] ? parts[7].replace(/"/g, '') : '';
 
                 if (isNaN(spheres) || isNaN(price) || isNaN(amount)) continue;
 
-                newSales.push({ date, spheres, pricePerSphere: price, sessionDuration, comment });
+                newSales.push({ date, spheres, pricePerSphere: price, sessionDuration, contentType, contentCount, comment });
             }
 
             if (newSales.length === 0) {
