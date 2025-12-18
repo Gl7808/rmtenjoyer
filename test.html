@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>RMTimer</title>
+    <title>Калькулятор сфер</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -18,6 +18,8 @@
             color: var(--text);
             font-family: Arial, sans-serif;
             padding: 20px;
+            margin: 0;
+            position: relative;
         }
 
         .container {
@@ -35,6 +37,25 @@
             -webkit-text-fill-color: transparent;
             font-size: 28px;
             text-align: center;
+        }
+
+        /* Кнопка настроек в правом верху */
+        .settings-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 10px rgba(90, 90, 255, 0.5);
         }
 
         /* Секундомер */
@@ -74,6 +95,11 @@
         .timer-controls button {
             padding: 8px 16px;
             font-size: 16px;
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
         }
 
         /* Форма */
@@ -96,7 +122,7 @@
             width: 100%;
         }
 
-        .form-row input, .form-row button {
+        .form-row input, .form-row button, .form-row select {
             padding: 10px;
             font-size: 16px;
             border-radius: 4px;
@@ -122,6 +148,18 @@
             color: var(--text);
             resize: vertical;
             width: 100%;
+        }
+
+        .icon-select {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .icon-select img {
+            width: 24px;
+            height: 24px;
+            vertical-align: middle;
         }
 
         /* Статистика - основные метрики */
@@ -258,13 +296,83 @@
         .delete-btn:hover {
             background: #ff0000;
         }
+
+        /* Модальное окно */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 350px;
+            text-align: center;
+        }
+
+        .modal h3 {
+            margin-top: 0;
+            color: var(--text);
+        }
+
+        .modal button {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .modal button:hover {
+            opacity: 0.9;
+        }
+
+        .content-type-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .content-type-item {
+            padding: 10px;
+            background: rgba(100, 100, 120, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .content-type-item:hover {
+            background: rgba(120, 120, 150, 0.3);
+        }
+
+        .content-type-item img {
+            width: 32px;
+            height: 32px;
+            margin-bottom: 5px;
+        }
     </style>
-    <link rel="icon" href="favicon.ico" type="image/x-icon">
 </head>
 <body>
 
+<!-- Кнопка настроек -->
+<button class="settings-btn" id="settingsBtn">⚙️</button>
+
 <div class="container">
-    <h1></h1>
+    <h1>Подсчёт дохода от продажи сфер</h1>
 
     <!-- Блок секундомера -->
     <div class="timer-section">
@@ -284,19 +392,21 @@
             <input type="number" id="spheresInput" placeholder="Количество сфер" min="1" step="1" required />
             <input type="number" id="priceInput" placeholder="Цена за сферу (руб)" min="0.01" step="0.01" required />
             <input type="number" id="sessionTimeInput" placeholder="Время сессии (мин)" min="0" step="0.01" />
+            <select id="contentTypeSelect" class="icon-select">
+                <option value="">Тип контента</option>
+                <option value="expedition">Журналы экспедиции</option>
+                <option value="map">Карты</option>
+                <option value="party">Пати карты</option>
+                <option value="boss">Боссы</option>
+            </select>
+            <input type="number" id="contentCountInput" placeholder="Кол-во контентов" min="1" step="1" />
+            <button type="submit">Добавить продажу</button>
         </div>
         <div class="form-row">
             <textarea id="commentInput" placeholder="Комментарий (необязательно)" rows="2"></textarea>
             <button type="submit">Добавить продажу</button>
         </div>
     </form>
-
-    <!-- Кнопки экспорта/импорта -->
-    <div style="margin-bottom: 20px; text-align: center;">
-        <button id="exportCsvBtn">Экспорт в CSV</button>
-        <button id="importCsvBtn">Импорт из CSV</button>
-        <input type="file" id="csvFileInput" accept=".csv" style="display: none;" />
-    </div>
 
     <!-- Основная статистика -->
     <div class="main-stats">
@@ -332,6 +442,10 @@
             <div class="stat-value" id="avgRoublesPerHour">0</div>
             <div class="stat-label">Руб в час</div>
         </div>
+        <div class="stat-card">
+            <div class="stat-value" id="avgSpheresPerContent">0</div>
+            <div class="stat-label">Сфер / Контент</div>
+        </div>
     </div>
 
     <!-- Спойлер для графиков -->
@@ -366,6 +480,8 @@
             <th>Цена за шт.</th>
             <th>Сумма</th>
             <th>Время сессии</th>
+            <th>Контент</th>
+            <th>Кол-во</th>
             <th>Комментарий</th>
             <th>Действия</th>
         </tr>
@@ -376,11 +492,44 @@
     </table>
 </div>
 
+<!-- Модальное окно -->
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <h3>Настройки</h3>
+
+        <h4>Тип контента по умолчанию</h4>
+        <div class="content-type-grid">
+            <div class="content-type-item" data-type="expedition">
+                <img src="https://img.icons8.com/emoji/48/000000/magazine-emoji.png" alt="Журналы" />
+                <div>Журналы</div>
+            </div>
+            <div class="content-type-item" data-type="map">
+                <img src="https://img.icons8.com/emoji/48/000000/map-emoji.png" alt="Карты" />
+                <div>Карты</div>
+            </div>
+            <div class="content-type-item" data-type="party">
+                <img src="https://img.icons8.com/emoji/48/000000/shield-emoji.png" alt="Пати" />
+                <div>Пати</div>
+            </div>
+            <div class="content-type-item" data-type="boss">
+                <img src="https://img.icons8.com/emoji/48/000000/crossed-swords-emoji.png" alt="Боссы" />
+                <div>Боссы</div>
+            </div>
+        </div>
+
+        <button id="generateReportBtn">Создать отчет</button>
+        <button id="exportCsvBtnModal">Экспорт CSV</button>
+        <button id="importCsvBtnModal">Импорт CSV</button>
+        <button id="closeModalBtn">Закрыть</button>
+    </div>
+</div>
+
 <script>
     const LS_KEY = 'salesData';
     const SESSION_LS_KEY = 'sessionStartTime';
     const SESSION_PAUSE_KEY = 'sessionPauseState';
-    const CHART_COLLAPSED_LS_KEY = 'chartCollapsed'; // Для сохранения состояния спойлера
+    const CHART_COLLAPSED_LS_KEY = 'chartCollapsed';
+    const DEFAULT_CONTENT_TYPE_LS_KEY = 'defaultContentType';
     let sales = JSON.parse(localStorage.getItem(LS_KEY)) || [];
     let lastPrice = 0;
     let sessionStart = null;
@@ -423,6 +572,12 @@
             lastPrice = lastSale.pricePerSphere;
             document.getElementById('priceInput').value = lastPrice;
         }
+
+        // Восстанавливаем тип контента по умолчанию
+        const defaultType = localStorage.getItem(DEFAULT_CONTENT_TYPE_LS_KEY);
+        if (defaultType) {
+            document.getElementById('contentTypeSelect').value = defaultType;
+        }
     }
 
     // Вспомогательная функция для интерполяции цвета
@@ -444,6 +599,7 @@
             document.getElementById('avgRoublesPerDay').textContent = 0;
             document.getElementById('avgSpheresPerHour').textContent = 0;
             document.getElementById('avgRoublesPerHour').textContent = 0;
+            document.getElementById('avgSpheresPerContent').textContent = 0;
             return;
         }
 
@@ -460,6 +616,10 @@
 
         const avgSpheresPerHour = totalHours ? (totalSpheres / totalHours).toFixed(2) : 0;
         const avgRoublesPerHour = totalHours ? (totalRoubles / totalHours).toFixed(2) : 0;
+
+        // Среднее сфер / контент
+        const totalContentCount = sales.reduce((sum, s) => sum + (s.contentCount || 0), 0);
+        const avgSpheresPerContent = totalContentCount ? (totalSpheres / totalContentCount).toFixed(2) : 0;
 
         // Устанавливаем значения
         document.getElementById('daysCount').textContent = uniqueDays;
@@ -480,6 +640,7 @@
         document.getElementById('avgRoublesPerDay').textContent = avgRoublesPerDay;
         document.getElementById('avgSpheresPerHour').textContent = avgSpheresPerHour;
         document.getElementById('avgRoublesPerHour').textContent = avgRoublesPerHour;
+        document.getElementById('avgSpheresPerContent').textContent = avgSpheresPerContent;
     }
 
     // Обновление истории
@@ -492,6 +653,26 @@
             const amount = (s.spheres * s.pricePerSphere).toFixed(2);
             const duration = s.sessionDuration !== undefined ? formatTime(s.sessionDuration) : '—';
             const comment = s.comment || '—';
+            const contentType = s.contentType || '—';
+            const contentCount = s.contentCount || '—';
+
+            // Иконка контента (изображение)
+            let icon = '—';
+            if (s.contentType) {
+                // Пример: можно вставить свои изображения
+                const iconMap = {
+                    'expedition': 'https://img.icons8.com/emoji/48/000000/magazine-emoji.png',
+                    'map': 'https://img.icons8.com/emoji/48/000000/map-emoji.png',
+                    'party': 'https://img.icons8.com/emoji/48/000000/shield-emoji.png',
+                    'boss': 'https://img.icons8.com/emoji/48/000000/crossed-swords-emoji.png'
+                };
+                const iconUrl = iconMap[s.contentType];
+                if (iconUrl) {
+                    icon = `<img src="${iconUrl}" alt="${s.contentType}" title="${s.contentType}" style="width: 24px; height: 24px;" />`;
+                } else {
+                    icon = '❓';
+                }
+            }
 
             row.innerHTML = `
         <td>${formatDateToDayMonth(s.date)}</td>
@@ -499,6 +680,8 @@
         <td>${s.pricePerSphere}</td>
         <td>${amount}</td>
         <td>${duration}</td>
+        <td>${icon}</td>
+        <td>${contentCount}</td>
         <td>${comment}</td>
         <td><button class="delete-btn" data-index="${index}">Удалить</button></td>
       `;
@@ -699,6 +882,8 @@
         const spheres = parseInt(document.getElementById('spheresInput').value);
         const price = parseFloat(document.getElementById('priceInput').value);
         const sessionTimeInMinutes = parseFloat(document.getElementById('sessionTimeInput').value);
+        const contentType = document.getElementById('contentTypeSelect').value || 'mixed';
+        const contentCount = parseInt(document.getElementById('contentCountInput').value) || 0;
         const comment = document.getElementById('commentInput').value.trim();
 
         let sessionDuration = null;
@@ -706,43 +891,28 @@
             sessionDuration = Math.round(sessionTimeInMinutes * 60); // в секундах
         }
 
-        // Останавливаем таймер, если он был запущен
-        if (sessionStart) {
-            stopTimer();
-        }
-
-        sales.push({ date, spheres, pricePerSphere: price, sessionDuration, comment });
+        // Сохраняем данные, даже если таймер активен
+        sales.push({ date, spheres, pricePerSphere: price, sessionDuration, contentType, contentCount, comment });
         localStorage.setItem(LS_KEY, JSON.stringify(sales));
-
-        // Сбрасываем форму и таймер
-        document.getElementById('saleForm').reset();
-        document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
-        if (sales.length > 0) {
-            const lastSale = sales[sales.length - 1];
-            document.getElementById('priceInput').value = lastSale.pricePerSphere;
-        }
-
-        // Сбрасываем переменные таймера
-        clearInterval(timerInterval);
-        sessionStart = null;
-        sessionPausedAt = null;
-        totalPausedSeconds = 0;
-        localStorage.removeItem(SESSION_LS_KEY);
-        localStorage.removeItem(SESSION_PAUSE_KEY);
-        document.getElementById('timerDisplay').textContent = '00:00:00';
-        document.getElementById('sessionTimeInput').value = '';
-        updatePageTitle();
-
-        // Сбрасываем кнопки
-        document.getElementById('startSessionBtn').disabled = false;
-        document.getElementById('pauseSessionBtn').disabled = true;
-        document.getElementById('resumeSessionBtn').disabled = true;
-        document.getElementById('resetTimerBtn').disabled = true;
 
         // Обновляем интерфейс
         renderCharts();
         updateStats();
         updateHistoryTable();
+
+        // Сбрасываем только поля формы
+        document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
+        document.getElementById('spheresInput').value = '';
+        document.getElementById('priceInput').value = '';
+        document.getElementById('sessionTimeInput').value = '';
+        document.getElementById('contentTypeSelect').value = '';
+        document.getElementById('contentCountInput').value = '';
+        document.getElementById('commentInput').value = '';
+
+        if (sales.length > 0) {
+            const lastSale = sales[sales.length - 1];
+            document.getElementById('priceInput').value = lastSale.pricePerSphere;
+        }
     });
 
     // Переключение графиков
@@ -793,25 +963,25 @@
 
         window.dailyChartInstance = new Chart(ctx, {
             type: 'line',
-            data: {  // ✅ Явно указано свойство data
-                labels: formattedDates,
+        data :{  // ✅ Полностью явный объект
+            labels: formattedDates,
                 datasets: [{
-                    label: labelMap[selectedType],
-                    data: values,  // ✅ Явно указано свойство data
-                    borderColor: '#5a3aff',
-                    backgroundColor: 'rgba(90, 58, 255, 0.1)',
-                    fill: true,
-                }]
-            },
-            options: {
-                responsive: true,
+            label: labelMap[selectedType],
+            values,
+            borderColor: '#5a3aff',
+            backgroundColor: 'rgba(90, 58, 255, 0.1)',
+            fill: true,
+        }]
+        },
+        options: {
+            responsive: true,
                 plugins: { legend: { labels: { color: '#e0e0e0' } } },
-                scales: {
-                    x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                    y: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } }
-                }
+            scales: {
+                x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } }
             }
-        });
+        }
+    });
     }
 
     // Экспорт в CSV
@@ -821,12 +991,12 @@
             return;
         }
 
-        const header = "Дата,Сфер,Цена за шт,Сумма,Время сессии (сек),Комментарий\n";
+        const header = "Дата,Сфер,Цена за шт,Сумма,Время сессии (сек),Тип контента,Кол-во контентов,Комментарий\n";
         const rows = sales.map(s => {
             const amount = (s.spheres * s.pricePerSphere).toFixed(2);
             const duration = s.sessionDuration !== undefined ? s.sessionDuration : '';
             const comment = s.comment ? `"${s.comment}"` : '""';
-            return `"${s.date}",${s.spheres},${s.pricePerSphere},${amount},${duration},${comment}`;
+            return `"${s.date}",${s.spheres},${s.pricePerSphere},${amount},${duration},"${s.contentType}",${s.contentCount},${comment}`;
         }).join('\n');
 
         const csvContent = header + rows;
@@ -874,18 +1044,20 @@
                 }
                 parts.push(current);
 
-                if (parts.length < 6) continue;
+                if (parts.length < 8) continue;
 
                 const date = parts[0].replace(/"/g, '');
                 const spheres = parseInt(parts[1]);
                 const price = parseFloat(parts[2]);
                 const amount = parseFloat(parts[3]);
                 const sessionDuration = parts[4] ? parseInt(parts[4]) : null;
-                const comment = parts[5] ? parts[5].replace(/"/g, '') : '';
+                const contentType = parts[5] ? parts[5].replace(/"/g, '') : 'mixed';
+                const contentCount = parts[6] ? parseInt(parts[6]) : 0;
+                const comment = parts[7] ? parts[7].replace(/"/g, '') : '';
 
                 if (isNaN(spheres) || isNaN(price) || isNaN(amount)) continue;
 
-                newSales.push({ date, spheres, pricePerSphere: price, sessionDuration, comment });
+                newSales.push({ date, spheres, pricePerSphere: price, sessionDuration, contentType, contentCount, comment });
             }
 
             if (newSales.length === 0) {
@@ -906,6 +1078,112 @@
         reader.readAsText(file);
     }
 
+    // Генерация отчета в виде изображения
+    async function generateReportImage() {
+        // Создаем canvas
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800;
+        canvas.height = 1200;
+
+        // Заливка фона
+        ctx.fillStyle = '#1e1e1e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Заголовок
+        ctx.fillStyle = '#5a3aff';
+        ctx.font = 'bold 32px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Отчет по продаже сфер', canvas.width / 2, 50);
+
+        // Статистика (в рамочках)
+        ctx.fillStyle = '#e0e0e0';
+        ctx.font = '18px Arial';
+        ctx.textAlign = 'left';
+
+        const stats = [
+            { label: 'Дней продаж:', value: document.getElementById('daysCount').textContent },
+            { label: 'Всего сфер:', value: document.getElementById('totalSpheres').textContent },
+            { label: 'Всего рублей:', value: document.getElementById('totalRoubles').textContent },
+            { label: 'Среднее сфер в день:', value: document.getElementById('avgSpheresPerDay').textContent },
+            { label: 'Среднее руб/день:', value: document.getElementById('avgRoublesPerDay').textContent },
+            { label: 'Среднее сфер в час:', value: document.getElementById('avgSpheresPerHour').textContent },
+            { label: 'Среднее руб в час:', value: document.getElementById('avgRoublesPerHour').textContent },
+            { label: 'Сфер / Контент:', value: document.getElementById('avgSpheresPerContent').textContent }
+        ];
+
+        let y = 100;
+        for (const stat of stats) {
+            // Рамочка
+            ctx.fillStyle = 'rgba(60, 60, 60, 0.5)';
+            ctx.fillRect(40, y - 25, canvas.width - 80, 40);
+
+            // Текст
+            ctx.fillStyle = '#e0e0e0';
+            ctx.fillText(`${stat.label} ${stat.value}`, 50, y);
+            y += 50;
+        }
+
+        // Дни продаж (как календарь)
+        ctx.fillStyle = '#e0e0e0';
+        ctx.font = '18px Arial';
+        ctx.fillText('Дни продаж (цвет от суммы)', 40, y + 20);
+        y += 40;
+
+        // Группировка по дням
+        const dailyData = {};
+        sales.forEach(s => {
+            if (!dailyData[s.date]) dailyData[s.date] = 0;
+            dailyData[s.date] += s.spheres * s.pricePerSphere;
+        });
+
+        const dates = Object.keys(dailyData).sort();
+        if (dates.length === 0) {
+            ctx.fillText('Нет данных для отображения', 40, y);
+        } else {
+            const maxRoubles = Math.max(...Object.values(dailyData));
+            const itemWidth = 60;
+            const itemHeight = 60;
+            const spacing = 10;
+            const startX = 40;
+            let currentX = startX;
+
+            for (const date of dates) {
+                const amount = dailyData[date];
+                const color = interpolateColor(amount, maxRoubles, [255, 0, 0], [0, 255, 0]);
+
+                ctx.fillStyle = color;
+                ctx.fillRect(currentX, y, itemWidth, itemHeight);
+
+                ctx.fillStyle = '#000';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(formatDateToDayMonth(date), currentX + itemWidth / 2, y + 20);
+                ctx.fillText(`${amount.toFixed(2)} руб`, currentX + itemWidth / 2, y + 40);
+
+                currentX += itemWidth + spacing;
+                if (currentX > canvas.width - itemWidth) {
+                    currentX = startX;
+                    y += itemHeight + spacing;
+                }
+            }
+        }
+
+        // Преобразуем canvas в Blob
+        canvas.toBlob(async (blob) => {
+            try {
+                // Копируем в буфер обмена
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'image/png': blob })
+                ]);
+                alert('Отчет скопирован в буфер обмена как изображение!');
+            } catch (err) {
+                console.error('Ошибка при копировании изображения:', err);
+                alert('Не удалось скопировать изображение. Проверьте поддержку браузером Clipboard API.');
+            }
+        }, 'image/png');
+    }
+
     // Инициализация
     setDefaults();
     resumeTimerIfActive();
@@ -920,20 +1198,56 @@
     // Обработчик кнопки спойлера графиков
     document.getElementById('toggleChartBtn').addEventListener('click', toggleChartVisibility);
 
+    // Обработчик кнопки настроек
+    document.getElementById('settingsBtn').addEventListener('click', () => {
+        document.getElementById('settingsModal').style.display = 'block';
+    });
+
+    // Обработчики кнопок в модальном окне
+    document.getElementById('generateReportBtn').addEventListener('click', () => {
+        document.getElementById('settingsModal').style.display = 'none';
+        generateReportImage();
+    });
+
+    document.getElementById('exportCsvBtnModal').addEventListener('click', () => {
+        document.getElementById('settingsModal').style.display = 'none';
+        exportToCsv();
+    });
+
+    document.getElementById('importCsvBtnModal').addEventListener('click', () => {
+        document.getElementById('settingsModal').style.display = 'none';
+        document.getElementById('csvFileInput').click();
+    });
+
+    document.getElementById('closeModalBtn').addEventListener('click', () => {
+        document.getElementById('settingsModal').style.display = 'none';
+    });
+
+    // Закрытие модального окна при клике вне его
+    window.onclick = function(event) {
+        const modal = document.getElementById('settingsModal');
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
+
+    // Обработчики выбора типа контента
+    document.querySelectorAll('.content-type-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const type = item.getAttribute('data-type');
+            localStorage.setItem(DEFAULT_CONTENT_TYPE_LS_KEY, type);
+            document.getElementById('contentTypeSelect').value = type;
+            alert(`Тип контента по умолчанию изменён на: ${item.querySelector('div').textContent}`);
+        });
+    });
+
     // Обработчики кнопок таймера
     document.getElementById('startSessionBtn').addEventListener('click', startTimer);
     document.getElementById('pauseSessionBtn').addEventListener('click', pauseTimer);
     document.getElementById('resumeSessionBtn').addEventListener('click', resumeTimer);
     document.getElementById('resetTimerBtn').addEventListener('click', resetTimer);
 
-    // Обработчик кнопки экспорта
-    document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);
-
-    // Обработчик кнопки импорта
-    document.getElementById('importCsvBtn').addEventListener('click', () => {
-        document.getElementById('csvFileInput').click();
-    });
-
+    // Обработчик кнопки импорта CSV
     document.getElementById('csvFileInput').addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file && file.name.endsWith('.csv')) {
